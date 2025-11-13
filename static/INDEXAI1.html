@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vivekanand Memorial School Assistant</title>
+    <style>
+        /* General Styles - Kept mostly as you designed */
+        body {
+            margin: 0;
+            font-family: "Inter", "Segoe UI", Tahoma, sans-serif;
+            background: linear-gradient(135deg, #6dd5ed, #2193b0);
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 0; /* No extra outer padding to avoid scroll */
+            overflow: hidden; /* Prevent page scroll while fitting content */
+        }
+
+        #container {
+            background: #fff;
+            border-radius: 20px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+            padding: 20px; /* Tighter padding overall */
+            padding-top: 2px;  /* Use top space for a larger logo */
+            padding-bottom: 6px; /* Tighter bottom */
+            max-width: 450px;
+            width: 90%;
+            text-align: center;
+            animation: fadeIn 1s ease;
+        }
+
+        /* NEW STYLES FOR LOGO AND TITLES */
+        #logo-wrap {
+            display: flex;
+            align-items: flex-end; /* anchor image to the bottom */
+            justify-content: center;
+            overflow: hidden; /* crop any transparent padding if present */
+            line-height: 0; /* remove inline spacing */
+            height: clamp(160px, 22vh, 220px); /* smaller visible crest height */
+            margin-bottom: -2px; /* keep title close */
+        }
+        #school-logo {
+            width: auto;
+            height: 100%; /* fit within wrapper */
+            object-fit: contain; /* Show full emblem */
+            object-position: center;
+            display: block; /* avoid baseline gap from inline images */
+            transform: translateY(4px); /* slight push to trim empty bottom */
+            margin-bottom: 0;  /* Place title immediately after logo */
+        }
+
+        h1 {
+            font-size: 18px; /* Reduced font size for the long name */
+            margin-top: -6px;   /* minimal gap just below logo */
+            margin-bottom: 2px;
+            color: #2193b0;
+            font-weight: 700;
+        }
+
+        #subtitle {
+            font-size: 20px; /* Slightly smaller to save space */
+            margin-top: 0;
+            margin-bottom: 6px; /* Reduce spacing under subtitle */
+            color: #4a4a4a;
+            font-weight: 300;
+        }
+        /* END NEW STYLES */
+
+        #input-area {
+            display: flex;
+            align-items: center;
+            gap: 8px; /* Slightly tighter layout */
+            justify-content: center;
+        }
+
+        #question {
+            flex: 1;
+            padding: 12px;
+            font-size: 16px;
+            border: 2px solid #2193b0;
+            border-radius: 10px;
+            outline: none;
+            transition: 0.3s;
+        }
+
+        button {
+            padding: 12px 25px;
+            font-size: 16px;
+            font-weight: bold;
+            color: #fff;
+            background: linear-gradient(135deg, #2193b0, #6dd5ed);
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: 0.3s;
+            margin-top: 4px; /* Tighter to save vertical space */
+        }
+
+        #micBtn {
+            background: #ff5252;
+            border-radius: 50%;
+            width: 45px;
+            height: 45px;
+            font-size: 20px;
+            padding: 0;
+            margin: 0;
+        }
+
+        #output {
+            margin-top: 6px; /* Reduce space above answer box */
+            padding: 15px;
+            min-height: 36px; /* Slightly reduced to fit viewport */
+            border-radius: 12px;
+            background: #f4f9fb;
+            border: 1px solid #dceef3;
+            font-size: 17px;
+            color: #333;
+            text-align: left;
+        }
+
+        /* Loading animation styles */
+        .bars { display: flex; justify-content: center; gap: 4px; height: 20px; margin-top: 20px; }
+        .bar { width: 6px; height: 100%; background: #2193b0; border-radius: 3px; animation: bounce 1s infinite ease-in-out; }
+        .bar:nth-child(2) { animation-delay: 0.1s; }
+        .bar:nth-child(3) { animation-delay: 0.2s; }
+        .bar:nth-child(4) { animation-delay: 0.3s; }
+        .bar:nth-child(5) { animation-delay: 0.4s; }
+        @keyframes bounce { 0%, 100% { transform: scaleY(0.4); } 50% { transform: scaleY(1); } }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <!-- FIXED: Use absolute Flask static path so it resolves reliably -->
+        <div id="logo-wrap">
+            <img id="school-logo" src="/static/logo.png" onerror="this.onerror=null; this.src='https://placehold.co/80x80/2193b0/ffffff?text=LOGO'" alt="Vivekanand Memorial Public School Logo">
+        </div>
+        <h1>VIVEKANAND MEMORIAL SENIOR SECONDARY PUBLIC SCHOOL</h1>
+        <h2 id="subtitle">School Assistant</h2>
+
+        <div id="input-area">
+            <input id="question" type="text" placeholder="Ask me anything..." onkeyup="if(event.key === 'Enter') askAssistant()">
+            <button id="micBtn" onclick="startListening()">🎤</button>
+        </div>
+
+        <button onclick="askAssistant()">Ask</button>
+
+        <div id="loading" class="bars hidden">
+            <div class="bar"></div>
+            <div class="bar"></div>
+            <div class="bar"></div>
+            <div class="bar"></div>
+            <div class="bar"></div>
+        </div>
+
+        <div id="output">Answer will appear here...</div>
+
+    </div>
+
+    <script>
+        // DOM element references
+        const outputElement = document.getElementById("output");
+        const questionInput = document.getElementById("question");
+        const loadingElement = document.getElementById("loading");
+
+        // Function to handle client-side TTS
+        function speakAnswer(text) {
+            // CRITICAL FIXES FOR VOICE OUTPUT
+            if ('speechSynthesis' in window) {
+                const synth = window.speechSynthesis;
+
+                // 1. Cancel any previous speech to prevent engine locking
+                synth.cancel();
+
+                const utterance = new SpeechSynthesisUtterance(text);
+
+                // 2. Set preferred language/voice for reliability
+                utterance.lang = 'en-US';
+                utterance.rate = 1.0;
+
+                // 3. Ensure voices are loaded before speaking (important for some browsers)
+                const voices = synth.getVoices();
+                if (voices.length > 0) {
+                    // Try to pick a default voice if needed
+                    utterance.voice = voices.find(v => v.lang === utterance.lang) || voices[0];
+                }
+
+                // 4. Start speaking
+                synth.speak(utterance);
+            } else {
+                console.warn("Speech Synthesis not supported in this browser.");
+            }
+        }
+        // Listener to ensure voices are available early
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.onvoiceschanged = () => {
+                console.log("Speech voices loaded.");
+            };
+        }
+
+
+        // Main function to query the assistant
+        async function askAssistant() {
+            let query = questionInput.value.trim();
+            if (!query) {
+                outputElement.innerText = "Please type a question first.";
+                return;
+            }
+
+            outputElement.innerText = "Thinking...";
+            loadingElement.classList.remove("hidden"); // Show loading bars
+
+            try {
+                // Ensure Flask server is running at port 5000
+                const response = await fetch("/ask", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ query: query })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                const answer = data.answer;
+
+                outputElement.innerText = answer;
+                speakAnswer(answer); // Speak the answer
+
+            } catch (error) {
+                console.error("Assistant Error:", error);
+                outputElement.innerText = "⚠️ Error: Could not reach the server or process the request. (Check backend console)";
+            } finally {
+                loadingElement.classList.add("hidden"); // Hide loading bars
+            }
+        }
+
+        // 🎤 Voice input using Web Speech API
+        function startListening() {
+            if (!('webkitSpeechRecognition' in window)) {
+                outputElement.innerText = "⚠️ Sorry, your browser does not support voice input.";
+                return;
+            }
+
+            let recognition = new webkitSpeechRecognition();
+            recognition.lang = "en-US";
+            recognition.interimResults = false;
+            recognition.maxAlternatives = 1;
+
+            outputElement.innerText = "Listening... speak now.";
+            recognition.start();
+
+            recognition.onresult = function(event) {
+                let transcript = event.results[0][0].transcript;
+                questionInput.value = transcript;
+                outputElement.innerText = "Processing query: " + transcript;
+                // Important: Call askAssistant() from a direct user action (mic button click)
+                // This helps avoid browser blocking of audio/speech.
+                askAssistant();
+            };
+
+            recognition.onerror = function(event) {
+                console.error("Recognition error:", event.error);
+                outputElement.innerText = "⚠️ Voice recognition failed. Try typing your question.";
+            };
+        }
+    </script>
+</body>
+</html>
